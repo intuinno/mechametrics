@@ -186,7 +186,7 @@ class LogisticRegression(object):
 
 # In[3]:
 
-def load_data(dataset, data_size):
+def load_data(dataset):
     ''' Loads the dataset
 
     :type dataset: string
@@ -222,8 +222,6 @@ def load_data(dataset, data_size):
     # numpy.ndarray of 1 dimension (vector) that has the same length as
     # the number of rows in the input. It should give the target
     # to the example with the same index in the input.
-    trainX, trainY = train_set
-    train_set = (trainX[:data_size], trainY[:data_size])
 
     def shared_dataset(data_xy, borrow=True):
         """ Function that loads the dataset into shared variables
@@ -261,7 +259,7 @@ def load_data(dataset, data_size):
 
 # In[4]:
 
-def sgd_optimization_mnist(data_size, learning_rate=0.13, n_epochs=1000,
+def sgd_optimization_mnist(data_size, datasets, learning_rate=0.13, n_epochs=1000,
                            dataset='mnist.pkl.gz',
                            batch_size=600):
     """
@@ -282,16 +280,17 @@ def sgd_optimization_mnist(data_size, learning_rate=0.13, n_epochs=1000,
                  http://www.iro.umontreal.ca/~lisa/deep/data/mnist/mnist.pkl.gz
 
     """
-    datasets = load_data(dataset, data_size)
+
     
-    batch_size = 10
+    batch_size = 100
 
     train_set_x, train_set_y = datasets[0]
     valid_set_x, valid_set_y = datasets[1]
     test_set_x, test_set_y = datasets[2]
 
     # compute number of minibatches for training, validation and testing
-    n_train_batches = train_set_x.get_value(borrow=True).shape[0] // batch_size
+    # n_train_batches = train_set_x.get_value(borrow=True).shape[0] // batch_size
+    n_train_batches = data_size // batch_size
     n_valid_batches = valid_set_x.get_value(borrow=True).shape[0] // batch_size
     n_test_batches = test_set_x.get_value(borrow=True).shape[0] // batch_size
 
@@ -397,15 +396,15 @@ def sgd_optimization_mnist(data_size, learning_rate=0.13, n_epochs=1000,
                                      for i in range(n_valid_batches)]
                 this_validation_loss = numpy.mean(validation_losses)
 
-#                 print(
-#                     'epoch %i, minibatch %i/%i, validation error %f %%' %
-#                     (
-#                         epoch,
-#                         minibatch_index + 1,
-#                         n_train_batches,
-#                         this_validation_loss * 100.
-#                     )
-#                 )
+                print(
+                    'epoch %i, minibatch %i/%i, validation error %f %%' %
+                    (
+                        epoch,
+                        minibatch_index + 1,
+                        n_train_batches,
+                        this_validation_loss * 100.
+                    )
+                )
 
                 # if we got the best validation score until now
                 if this_validation_loss < best_validation_loss:
@@ -420,18 +419,18 @@ def sgd_optimization_mnist(data_size, learning_rate=0.13, n_epochs=1000,
                                    for i in range(n_test_batches)]
                     test_score = numpy.mean(test_losses)
 
-#                     print(
-#                         (
-#                             '     epoch %i, minibatch %i/%i, test error of'
-#                             ' best model %f %%'
-#                         ) %
-#                         (
-#                             epoch,
-#                             minibatch_index + 1,
-#                             n_train_batches,
-#                             test_score * 100.
-#                         )
-#                     )
+                    print(
+                        (
+                            '     epoch %i, minibatch %i/%i, test error of'
+                            ' best model %f %%'
+                        ) %
+                        (
+                            epoch,
+                            minibatch_index + 1,
+                            n_train_batches,
+                            test_score * 100.
+                        )
+                    )
 
                     # save the best model
                     with open('best_model.pkl', 'wb') as f:
@@ -458,7 +457,7 @@ def sgd_optimization_mnist(data_size, learning_rate=0.13, n_epochs=1000,
 
 # In[5]:
 
-def predict():
+def predict(datasets):
     """
     An example of how to load a trained model and use it
     to predict labels.
@@ -473,8 +472,7 @@ def predict():
         outputs=classifier.y_pred)
 
     # We can test it on some examples from test test
-    dataset='mnist.pkl.gz'
-    datasets = load_data(dataset,10)
+
     test_set_x, test_set_y = datasets[2]
     test_set_x = test_set_x.get_value()
 
@@ -484,10 +482,11 @@ def predict():
 
 
 if __name__ == '__main__':
+    datasets = load_data('mnist.pkl.gz')
     result = numpy.arange(10000)
-    for i in range(10,50000,10):
-        sgd_optimization_mnist(i)
-        result = numpy.vstack((result, predict()))
+    for i in range(100,50000,100):
+        sgd_optimization_mnist(i, datasets)
+        result = numpy.vstack((result, predict(datasets)))
     
     df = pd.DataFrame(data=result[1:,:],columns=result[0,:])
     df.to_csv('logistic_regression.csv')
