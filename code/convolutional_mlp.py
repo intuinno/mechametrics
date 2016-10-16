@@ -25,17 +25,21 @@ References:
 from __future__ import print_function
 
 import os
+import os
+os.environ["THEANO_FLAGS"] = "device=gpu1"
+
 import sys
 import timeit
 
 import numpy
+import pandas as pd
 
 import theano
 import theano.tensor as T
 from theano.tensor.signal import pool
 from theano.tensor.nnet import conv2d
 
-from logistic_sgd import LogisticRegression, load_data
+from logistic_regression import LogisticRegression, load_data
 from mlp import HiddenLayer
 
 
@@ -117,9 +121,8 @@ class LeNetConvPoolLayer(object):
         self.input = input
 
 
-def evaluate_lenet5(learning_rate=0.1, n_epochs=200,
-                    dataset='mnist.pkl.gz',
-                    nkerns=[20, 50], batch_size=500):
+def evaluate_lenet5(data_size, datasets, learning_rate=0.1, n_epochs=200,
+                    nkerns=[20, 50], batch_size=100):
     """ Demonstrates lenet on MNIST dataset
 
     :type learning_rate: float
@@ -138,11 +141,11 @@ def evaluate_lenet5(learning_rate=0.1, n_epochs=200,
 
     rng = numpy.random.RandomState(23455)
 
-    datasets = load_data(dataset)
-
     train_set_x, train_set_y = datasets[0]
     valid_set_x, valid_set_y = datasets[1]
     test_set_x, test_set_y = datasets[2]
+    
+    # test_set_x_predict = test_set_x
 
     # compute number of minibatches for training, validation and testing
     n_train_batches = train_set_x.get_value(borrow=True).shape[0]
@@ -151,6 +154,8 @@ def evaluate_lenet5(learning_rate=0.1, n_epochs=200,
     n_train_batches //= batch_size
     n_valid_batches //= batch_size
     n_test_batches //= batch_size
+    
+    n_train_batches = data_size // batch_size
 
     # allocate symbolic variables for the data
     index = T.lscalar()  # index to a [mini]batch
@@ -163,6 +168,7 @@ def evaluate_lenet5(learning_rate=0.1, n_epochs=200,
     ######################
     # BUILD ACTUAL MODEL #
     ######################
+    print ('Num dataset = ', data_size)
     print('... building the model')
 
     # Reshape matrix of rasterized images of shape (batch_size, 28 * 28)
@@ -223,6 +229,15 @@ def evaluate_lenet5(learning_rate=0.1, n_epochs=200,
             x: test_set_x[index * batch_size: (index + 1) * batch_size],
             y: test_set_y[index * batch_size: (index + 1) * batch_size]
         }
+    )
+    
+    predict_model = theano.function(
+    inputs=[index],
+    outputs=layer3.y_result(y),
+    givens={
+            x: test_set_x[index * batch_size: (index + 1) * batch_size],
+            y: test_set_y[index * batch_size: (index + 1) * batch_size]
+            }
     )
 
     validate_model = theano.function(
@@ -327,11 +342,14 @@ def evaluate_lenet5(learning_rate=0.1, n_epochs=200,
                            'best model %f %%') %
                           (epoch, minibatch_index + 1, n_train_batches,
                            test_score * 100.))
-
+                    predicted_values = numpy.zeros(0,dtype=numpy.bool)
+                    for i in range(n_test_batches):
+                        predicted_values = numpy.concatenate([predicted_values,predict_model(i)])  
+                    
             if patience <= iter:
                 done_looping = True
                 break
-
+ 
     end_time = timeit.default_timer()
     print('Optimization complete.')
     print('Best validation score of %f %% obtained at iteration %i, '
@@ -340,10 +358,16 @@ def evaluate_lenet5(learning_rate=0.1, n_epochs=200,
     print(('The code for file ' +
            os.path.split(__file__)[1] +
            ' ran for %.2fm' % ((end_time - start_time) / 60.)), file=sys.stderr)
+    return predicted_values
 
 if __name__ == '__main__':
-    evaluate_lenet5()
-
-
+    datasets = load_data('mnist.pkl.gz')
+    result = numpy.arange(10000)
+    for i in range(100,50000,100):
+        prediction = evaluate_lenet5(i, datasets)
+        result = numpy.vstack((result, prediction))
+    df = pd.DataFrame(data=result[1:,:],columns=result[0,:])
+    df.to_csv('cnn.csv')
+    
 def experiment(state, channel):
     evaluate_lenet5(state.learning_rate, dataset=state.dataset)

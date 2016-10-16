@@ -182,6 +182,8 @@ class LogisticRegression(object):
         else:
             raise NotImplementedError()
 
+    def y_result(self, y):
+        return T.eq(y, self.y_pred)
 
 
 # In[3]:
